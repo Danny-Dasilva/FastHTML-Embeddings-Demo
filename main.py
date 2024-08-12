@@ -12,7 +12,7 @@ UserImage = user_images.dataclass()
 
 # Image directory and categories
 image_dir = Path('static/images')
-categories = ['Nature', 'Cities', 'Animals', 'Food', 'Technology']
+categories = ['catsinsink', 'corgi', 'otters', 'waterporn', 'earthporn']
 users = ['John Doe', 'Jane Doe', 'Bob Smith', 'Sarah Lee']
 
 def image_item(filename, category):
@@ -23,7 +23,7 @@ def image_item(filename, category):
     )
 
 def category_section(category):
-    images = list((image_dir / category.lower()).glob('*.webp'))[:10]
+    images = list((image_dir / category.lower()).glob('*.jpg'))[:10]
     return Div(
         H2(category),
         Div(*[image_item(img.name, category) for img in images], cls="category-images", id=f"{category.lower()}-images"),
