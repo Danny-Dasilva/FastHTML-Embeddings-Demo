@@ -145,23 +145,13 @@ def delete_user_favorite(user_id, image_id):
             
             print(f"Deleted favorite for user {user_id} with image ID {image_id}")
             
-            # Recalculate user's favorite embedding
-            cur.execute("""
-                WITH user_fav_embeddings AS (
-                    SELECT AVG(i.embedding) AS avg_embedding
-                    FROM user_favorites uf
-                    JOIN images i ON uf.image_id = i.id
-                    WHERE uf.user_id = %s
-                )
-                UPDATE user_favorite_embeddings
-                SET embedding = COALESCE((SELECT avg_embedding FROM user_fav_embeddings), NULL)
-                WHERE user_id = %s
-            """, (user_id, user_id))
+            
             
             if cur.rowcount == 0:
                 print(f"No embedding updated for user {user_id}")
             else:
                 print(f"Updated embedding for user {user_id}")
+    update_user_favorite_embedding(user_id)
                 
 def get_user_favorites(user_id):
     """Get the URLs of favorite images for a user."""
@@ -200,7 +190,8 @@ def add_user_favorite_by_url(user_id, url):
             else:
                 print(f"Added favorite for user {user_id} with image URL {url}")
             
-            return image_id
+    update_user_favorite_embedding(user_id)
+
 
 
 if __name__ == "__main__":
@@ -233,5 +224,3 @@ if __name__ == "__main__":
         print(f"User ID: {user_id}, Username: {username}, Similarity: {similarity:.4f}")
 
 
-if __name__ == "__main__":
-    main()

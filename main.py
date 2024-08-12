@@ -26,6 +26,18 @@ reversed_users_dict = {
     3: 'Bob Smith',
     4: 'Sarah Lee'
 }
+user_colors = {
+    'John Doe': '#FF5733',  # Red-ish color
+    'Jane Doe': '#33FF57',  # Green-ish color
+    'Bob Smith': '#3357FF',  # Blue-ish color
+    'Sarah Lee': '#FF33A1'   # Pink-ish color
+}
+reverse_user_colors = {
+    1: '#FF5733',  # Red-ish color
+    2: '#33FF57',  # Green-ish color
+    3: '#3357FF',  # Blue-ish color
+    4: '#FF33A1'   # Pink-ish color
+}
 def image_item(filename, category):
     return Div(
         Img(src=f"/static/images/{category.lower()}/{filename}", alt=filename, cls="category-image"),
@@ -55,8 +67,9 @@ def user_image(image, user):
 def user_similarity_section(name):
     user_id = users_dict[name]
     similar_users = get_similar_users(user_id)
+    print(similar_users, "here")
     similar_users_html = [
-        P(f"{reversed_users_dict[user_id]}: {similarity:.3f}") 
+        P(f"{reversed_users_dict[user_id]}: {similarity:.3f}", style=f"color: {reverse_user_colors[user_id]};") 
         for user_id, user_name, similarity in similar_users 
         if similarity is not None
     ]
@@ -64,7 +77,8 @@ def user_similarity_section(name):
         H4("Similar Users:"),
         *similar_users_html,
         cls="user-similarity",
-        id=f"{name.replace(' ', '_')}_similarity"
+        id=f"{name.replace(' ', '_')}_similarity",
+        hx_swap_oob="true",
     )
 
 def user_images_container(name):
@@ -75,18 +89,20 @@ def user_images_container(name):
 
 def user_card(name):
     username = f"@{name.lower().replace(' ', '')}"
+    user_color = user_colors[name]
     return Div(
-        H3(name),
-        P(username),
+        H3(name, style=f"color: {user_color};"),
+        P(username, style=f"color: {user_color};"),
         user_images_container(name),
         user_similarity_section(name),
-        cls="user-card"
+        cls="user-card",
+        style=f"border-color: {user_color};"
     )
 
 @rt("/")
 def get():
     return Titled(
-        "Image Drag and Drop App",
+        "PG Vector Embeddings Demo",
         Script(src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"),
         Div(*[category_section(cat) for cat in categories], cls="categories-container"),
         Div(*[user_card(name) for name in users], cls="users-container"),
@@ -227,18 +243,13 @@ def post(user: str, image_path: str):
         return user_images_container(user), user_similarity_section(user)
     if not any(img['url'] == image_path for img in favorites):
         add_user_favorite_by_url(user_id=user_id, url=f"./static/images/{image_path}")
-    return user_images_container(user)
-
-@rt('/update_similarity/{user}')
-def update_similarity(user: str):
-    return user_similarity_section(user)
+    return (user_images_container(user), *[user_similarity_section(name) for name in users])
 
 @rt('/delete_image/{user}/{image_id}')
 def delete(user: str, image_id: int):
     user_id = users_dict[user]
     delete_user_favorite(user_id=user_id, image_id=image_id)
-    return user_images_container(user)
-
+    return (user_images_container(user), *[user_similarity_section(name) for name in users])
 
 @rt('/static/images/{category}/{filename}')
 def serve_image(category: str, filename: str):
