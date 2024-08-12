@@ -18,6 +18,8 @@ users = ['John Doe', 'Jane Doe', 'Bob Smith', 'Sarah Lee']
 def image_item(filename, category):
     return Div(
         Img(src=f"/static/images/{category.lower()}/{filename}", alt=filename, cls="category-image"),
+        Button("...", cls="quick-add-btn", hx_post="/add_image", 
+               hx_vals=f"{{user: '', image_path: '{category.lower()}/{filename}'}}"),
         cls="image-item",
         data_path=f"{category.lower()}/{filename}"
     )
@@ -47,7 +49,6 @@ def user_images_container(name):
 def user_card(name):
     username = f"@{name.lower().replace(' ', '')}"
     return Div(
-        Div(cls="user-avatar"),
         H3(name),
         P(username),
         user_images_container(name),
@@ -66,16 +67,20 @@ def get():
             .categories-container { display: flex; flex-wrap: wrap; gap: 20px; }
             .category-section { flex: 1; min-width: 200px; }
             .category-images { display: flex; flex-wrap: wrap; gap: 10px; }
-            .image-item { width: 100px; height: 100px; cursor: move; }
+            .image-item { width: 100px; height: 100px; cursor: pointer; position: relative; }
             .category-image { width: 100%; height: 100%; object-fit: cover; }
             .users-container { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 40px; }
             .user-card { flex: 1; min-width: 200px; border: 1px solid #333; padding: 20px; background-color: #2a2a2a; }
-            .user-avatar { width: 50px; height: 50px; background-color: #444; border-radius: 50%; }
             .user-images { min-height: 100px; border: 1px dashed #444; margin-top: 20px; padding: 10px; display: flex; flex-wrap: wrap; gap: 10px; }
-            .user-image-container { position: relative; }
+            .user-image-container { position: relative; cursor: pointer; }
             .user-image { width: 80px; height: 80px; object-fit: cover; }
             .delete-btn { position: absolute; top: 0; right: 0; background-color: #ff4d4d; color: white; border: none; padding: 2px 5px; cursor: pointer; font-size: 0.8em; }
+            .quick-add-btn { position: absolute; bottom: 0; right: 0; background-color: #4CAF50; color: white; border: none; padding: 2px 5px; cursor: pointer; font-size: 0.8em; }
             .sortable-drag { opacity: 0.5; }
+            .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+            .modal-content { background: #2a2a2a; padding: 20px; border-radius: 5px; max-width: 90%; max-height: 90%; overflow: auto; }
+            .modal-image { max-width: 100%; max-height: 80vh; object-fit: contain; }
+            .user-select-btn { margin: 5px; padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
         """),
         Script("""
             document.addEventListener('DOMContentLoaded', function() {
@@ -112,6 +117,76 @@ def get():
                             evt.item.remove();  // Remove the cloned item
                         }
                     });
+                });
+
+                // Image view functionality
+                function showImageModal(src, alt) {
+                    const modal = document.createElement('div');
+                    modal.className = 'modal';
+                    modal.innerHTML = `
+                        <div class="modal-content">
+                            <img src="${src}" alt="${alt}" class="modal-image">
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+
+                    // Close modal when clicking outside the image
+                    modal.addEventListener('click', function(event) {
+                        if (event.target === modal) {
+                            modal.remove();
+                        }
+                    });
+                }
+
+                document.body.addEventListener('click', function(e) {
+                    const img = e.target.closest('img');
+                    if (img && (img.classList.contains('category-image') || img.classList.contains('user-image'))) {
+                        showImageModal(img.src, img.alt);
+                    }
+
+                    if (e.target.classList.contains('quick-add-btn')) {
+                        const imageItem = e.target.closest('.image-item');
+                        const imagePath = imageItem.dataset.path;
+                        const userCards = document.querySelectorAll('.user-card');
+                        
+                        // Create a modal for user selection
+                        const modal = document.createElement('div');
+                        modal.className = 'modal';
+                        modal.innerHTML = `
+                            <div class="modal-content">
+                                <h3>Select a user to add the image to:</h3>
+                                ${Array.from(userCards).map(card => `
+                                    <button class="user-select-btn" data-user="${card.querySelector('h3').textContent}">${card.querySelector('h3').textContent}</button>
+                                `).join('')}
+                            </div>
+                        `;
+                        
+                        document.body.appendChild(modal);
+
+                        // Close modal when clicking outside
+                        modal.addEventListener('click', function(event) {
+                            if (event.target === modal) {
+                                modal.remove();
+                            }
+                        });
+
+                        // Add event listeners to user selection buttons
+                        modal.querySelectorAll('.user-select-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const userName = this.dataset.user;
+                                const userImagesContainer = document.getElementById(`${userName.replace(' ', '_')}_images`);
+                                
+                                htmx.ajax('POST', '/add_image', {
+                                    target: userImagesContainer,
+                                    swap: 'outerHTML',
+                                    values: { user: userName, image_path: imagePath }
+                                });
+
+                                modal.remove();
+                            });
+                        });
+                    }
                 });
             });
         """)
