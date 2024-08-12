@@ -1,91 +1,122 @@
 from fasthtml.common import *
 from pathlib import Path
-from embeddings import get_user_favorites, delete_user_favorite, add_user_favorite_by_url, get_similar_users
+from embeddings import (
+    get_user_favorites,
+    delete_user_favorite,
+    add_user_favorite_by_url,
+    get_similar_users,
+)
+
 app, rt = fast_app()
 
 # Database setup
-db = database('data/images.db')
+db = database("data/images.db")
 user_images = db.t.user_images
 if user_images not in db.t:
-    user_images.create(id=int, user=str, image_path=str, pk='id')
+    user_images.create(id=int, user=str, image_path=str, pk="id")
 UserImage = user_images.dataclass()
 
 # Image directory and categories
-image_dir = Path('static/images')
-categories = ['catsinsink', 'corgi', 'otters', 'waterporn', 'earthporn']
-users = ['John Doe', 'Jane Doe', 'Bob Smith', 'Sarah Lee']
-users_dict = {
-    'John Doe': 1,
-    'Jane Doe': 2,
-    'Bob Smith': 3,
-    'Sarah Lee': 4
-}
-reversed_users_dict = {
-    1: 'John Doe',
-    2: 'Jane Doe',
-    3: 'Bob Smith',
-    4: 'Sarah Lee'
-}
+image_dir = Path("static/images")
+categories = ["catsinsink", "corgi", "otters", "waterporn", "earthporn"]
+users = ["John Doe", "Jane Doe", "Bob Smith", "Sarah Lee"]
+users_dict = {"John Doe": 1, "Jane Doe": 2, "Bob Smith": 3, "Sarah Lee": 4}
+reversed_users_dict = {1: "John Doe", 2: "Jane Doe", 3: "Bob Smith", 4: "Sarah Lee"}
 user_colors = {
-    'John Doe': '#FF5733',  # Red-ish color
-    'Jane Doe': '#33FF57',  # Green-ish color
-    'Bob Smith': '#3357FF',  # Blue-ish color
-    'Sarah Lee': '#FF33A1'   # Pink-ish color
+    "John Doe": "#FF5733",  # Red-ish color
+    "Jane Doe": "#33FF57",  # Green-ish color
+    "Bob Smith": "#3357FF",  # Blue-ish color
+    "Sarah Lee": "#FF33A1",  # Pink-ish color
 }
 reverse_user_colors = {
-    1: '#FF5733',  # Red-ish color
-    2: '#33FF57',  # Green-ish color
-    3: '#3357FF',  # Blue-ish color
-    4: '#FF33A1'   # Pink-ish color
+    1: "#FF5733",  # Red-ish color
+    2: "#33FF57",  # Green-ish color
+    3: "#3357FF",  # Blue-ish color
+    4: "#FF33A1",  # Pink-ish color
 }
+
+
 def image_item(filename, category):
     return Div(
-        Img(src=f"/static/images/{category.lower()}/{filename}", alt=filename, cls="category-image"),
-        Button("...", cls="quick-add-btn", hx_post="/add_image", 
-               hx_vals=f"{{user: '', image_path: '{category.lower()}/{filename}'}}"),
+        Img(
+            src=f"/static/images/{category.lower()}/{filename}",
+            alt=filename,
+            cls="category-image",
+        ),
+        Button(
+            "...",
+            cls="quick-add-btn",
+            hx_post="/add_image",
+            hx_vals=f"{{user: '', image_path: '{category.lower()}/{filename}'}}",
+        ),
         cls="image-item",
-        data_path=f"{category.lower()}/{filename}"
+        data_path=f"{category.lower()}/{filename}",
     )
 
+
 def category_section(category):
-    images = list((image_dir / category.lower()).glob('*.jpg'))[:10]
+    images = list((image_dir / category.lower()).glob("*.jpg"))[:10]
     return Div(
         H2(category),
-        Div(*[image_item(img.name, category) for img in images], cls="category-images", id=f"{category.lower()}-images"),
-        cls="category-section"
+        Div(
+            *[image_item(img.name, category) for img in images],
+            cls="category-images",
+            id=f"{category.lower()}-images",
+        ),
+        cls="category-section",
     )
+
 
 def user_image(image, user):
     return Div(
         Img(src=f"{image['url']}", alt=f"{image['url']}", cls="user-image"),
-        Button("Delete", cls="delete-btn", hx_delete=f"/delete_image/{user}/{image['id']}",
-               hx_target=f"#{user.replace(' ', '_')}_images", hx_swap="outerHTML"),
+        Button(
+            "Delete",
+            cls="delete-btn",
+            hx_delete=f"/delete_image/{user}/{image['id']}",
+            hx_target=f"#{user.replace(' ', '_')}_images",
+            hx_swap="outerHTML",
+        ),
         cls="user-image-container",
         data_path=f"{image['url']}",
     )
 
+
 def user_similarity_section(name):
     user_id = users_dict[name]
-    similar_users = get_similar_users(user_id)
-    print(similar_users, "here")
+    timestamp_results = get_similar_users(user_id)
+    similar_users = timestamp_results["results"]
+    elapsed_time = timestamp_results["elapsed_time"]
+
     similar_users_html = [
-        P(f"{reversed_users_dict[user_id]}: {similarity:.3f}", style=f"color: {reverse_user_colors[user_id]};") 
-        for user_id, user_name, similarity in similar_users 
+        P(
+            f"{reversed_users_dict[user_id]}: {similarity:.3f}",
+            style=f"color: {reverse_user_colors[user_id]};",
+        )
+        for user_id, user_name, similarity in similar_users
         if similarity is not None
     ]
+    elapsed_time_html = P(f"DB query time: {elapsed_time:.4f} seconds")
+
     return Div(
         H4("Similar Users:"),
         *similar_users_html,
+        elapsed_time_html,
         cls="user-similarity",
         id=f"{name.replace(' ', '_')}_similarity",
         hx_swap_oob="true",
     )
 
+
 def user_images_container(name):
     user_id = users_dict[name]
     favorites = get_user_favorites(user_id)
-    return Div(*[user_image(img, name) for img in favorites],
-               id=f"{name.replace(' ', '_')}_images", cls="user-images sortable-list")
+    return Div(
+        *[user_image(img, name) for img in favorites],
+        id=f"{name.replace(' ', '_')}_images",
+        cls="user-images sortable-list",
+    )
+
 
 def user_card(name):
     username = f"@{name.lower().replace(' ', '')}"
@@ -96,17 +127,19 @@ def user_card(name):
         user_images_container(name),
         user_similarity_section(name),
         cls="user-card",
-        style=f"border-color: {user_color};"
+        style=f"border-color: {user_color};",
     )
+
 
 @rt("/")
 def get():
     return Titled(
-        "PG Vector Embeddings Demo",
+        "PG VectorScale Embeddings Demo",
         Script(src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"),
         Div(*[category_section(cat) for cat in categories], cls="categories-container"),
         Div(*[user_card(name) for name in users], cls="users-container"),
-        Style("""
+        Style(
+            """
             body { background-color: #1a1a1a; color: #ffffff; }
             .categories-container { display: flex; flex-wrap: wrap; gap: 20px; }
             .category-section { flex: 1; min-width: 200px; }
@@ -125,8 +158,10 @@ def get():
             .modal-content { background: #2a2a2a; padding: 20px; border-radius: 5px; max-width: 90%; max-height: 90%; overflow: auto; }
             .modal-image { max-width: 100%; max-height: 80vh; object-fit: contain; }
             .user-select-btn { margin: 5px; padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
-        """),
-        Script("""
+        """
+        ),
+        Script(
+            """
             document.addEventListener('DOMContentLoaded', function() {
                 const categoryLists = document.querySelectorAll('.category-images');
                 const userLists = document.querySelectorAll('.sortable-list');
@@ -232,28 +267,39 @@ def get():
                     }
                 });
             });
-        """)
+        """
+        ),
     )
 
-@rt('/add_image')
+
+@rt("/add_image")
 def post(user: str, image_path: str):
     user_id = users_dict[user]
     favorites = get_user_favorites(user_id)
     if len(favorites) >= 4:
         return user_images_container(user), user_similarity_section(user)
-    if not any(img['url'] == image_path for img in favorites):
+    if not any(img["url"] == image_path for img in favorites):
         add_user_favorite_by_url(user_id=user_id, url=f"./static/images/{image_path}")
-    return (user_images_container(user), *[user_similarity_section(name) for name in users])
+    return (
+        user_images_container(user),
+        *[user_similarity_section(name) for name in users],
+    )
 
-@rt('/delete_image/{user}/{image_id}')
+
+@rt("/delete_image/{user}/{image_id}")
 def delete(user: str, image_id: int):
     user_id = users_dict[user]
     delete_user_favorite(user_id=user_id, image_id=image_id)
-    return (user_images_container(user), *[user_similarity_section(name) for name in users])
+    return (
+        user_images_container(user),
+        *[user_similarity_section(name) for name in users],
+    )
 
-@rt('/static/images/{category}/{filename}')
+
+@rt("/static/images/{category}/{filename}")
 def serve_image(category: str, filename: str):
     return FileResponse(image_dir / category / filename)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     serve()
