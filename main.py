@@ -1,6 +1,6 @@
 from fasthtml.common import *
 from pathlib import Path
-
+from embeddings import get_user_favorites, delete_user_favorite, add_user_favorite_by_url, get_similar_users
 app, rt = fast_app()
 
 # Database setup
@@ -14,7 +14,18 @@ UserImage = user_images.dataclass()
 image_dir = Path('static/images')
 categories = ['catsinsink', 'corgi', 'otters', 'waterporn', 'earthporn']
 users = ['John Doe', 'Jane Doe', 'Bob Smith', 'Sarah Lee']
-
+users_dict = {
+    'John Doe': 1,
+    'Jane Doe': 2,
+    'Bob Smith': 3,
+    'Sarah Lee': 4
+}
+reversed_users_dict = {
+    1: 'John Doe',
+    2: 'Jane Doe',
+    3: 'Bob Smith',
+    4: 'Sarah Lee'
+}
 def image_item(filename, category):
     return Div(
         Img(src=f"/static/images/{category.lower()}/{filename}", alt=filename, cls="category-image"),
@@ -32,18 +43,34 @@ def category_section(category):
         cls="category-section"
     )
 
-def user_image(image):
+def user_image(image, user):
     return Div(
-        Img(src=f"/static/images/{image.image_path}", alt=image.image_path, cls="user-image"),
-        Button("Delete", cls="delete-btn", hx_delete=f"/delete_image/{image.id}",
-               hx_target=f"#{image.user.replace(' ', '_')}_images", hx_swap="outerHTML"),
+        Img(src=f"{image['url']}", alt=f"{image['url']}", cls="user-image"),
+        Button("Delete", cls="delete-btn", hx_delete=f"/delete_image/{user}/{image['id']}",
+               hx_target=f"#{user.replace(' ', '_')}_images", hx_swap="outerHTML"),
         cls="user-image-container",
-        data_path=image.image_path
+        data_path=f"{image['url']}",
+    )
+
+def user_similarity_section(name):
+    user_id = users_dict[name]
+    similar_users = get_similar_users(user_id)
+    similar_users_html = [
+        P(f"{reversed_users_dict[user_id]}: {similarity:.3f}") 
+        for user_id, user_name, similarity in similar_users 
+        if similarity is not None
+    ]
+    return Div(
+        H4("Similar Users:"),
+        *similar_users_html,
+        cls="user-similarity",
+        id=f"{name.replace(' ', '_')}_similarity"
     )
 
 def user_images_container(name):
-    user_images_list = user_images(where=f"user == '{name}'")
-    return Div(*[user_image(img) for img in user_images_list],
+    user_id = users_dict[name]
+    favorites = get_user_favorites(user_id)
+    return Div(*[user_image(img, name) for img in favorites],
                id=f"{name.replace(' ', '_')}_images", cls="user-images sortable-list")
 
 def user_card(name):
@@ -52,6 +79,7 @@ def user_card(name):
         H3(name),
         P(username),
         user_images_container(name),
+        user_similarity_section(name),
         cls="user-card"
     )
 
@@ -170,7 +198,6 @@ def get():
                                 modal.remove();
                             }
                         });
-
                         // Add event listeners to user selection buttons
                         modal.querySelectorAll('.user-select-btn').forEach(btn => {
                             btn.addEventListener('click', function() {
@@ -194,22 +221,24 @@ def get():
 
 @rt('/add_image')
 def post(user: str, image_path: str):
-    user_images_list = user_images(where=f"user == '{user}'")
-    if len(user_images_list) >= 4:
-        return user_images_container(user)
-    if not any(img.image_path == image_path for img in user_images_list):
-        new_image = UserImage(user=user, image_path=image_path)
-        user_images.insert(new_image)
+    user_id = users_dict[user]
+    favorites = get_user_favorites(user_id)
+    if len(favorites) >= 4:
+        return user_images_container(user), user_similarity_section(user)
+    if not any(img['url'] == image_path for img in favorites):
+        add_user_favorite_by_url(user_id=user_id, url=f"./static/images/{image_path}")
     return user_images_container(user)
 
-@rt('/delete_image/{id}')
-def delete(id: int):
-    image = user_images.get(id)
-    if image:
-        user = image.user
-        user_images.delete(id)
-        return user_images_container(user)
-    return ""
+@rt('/update_similarity/{user}')
+def update_similarity(user: str):
+    return user_similarity_section(user)
+
+@rt('/delete_image/{user}/{image_id}')
+def delete(user: str, image_id: int):
+    user_id = users_dict[user]
+    delete_user_favorite(user_id=user_id, image_id=image_id)
+    return user_images_container(user)
+
 
 @rt('/static/images/{category}/{filename}')
 def serve_image(category: str, filename: str):
