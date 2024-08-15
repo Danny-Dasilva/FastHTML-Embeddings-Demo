@@ -11,6 +11,7 @@ python-fasthtml = "^0.3.3"
 psycopg2 = "^2.9.9"
 torch = "^2.4.0"
 pillow = "^10.4.0"
+clip = {git = "https://github.com/openai/CLIP.git"}
 
 
 [build-system]

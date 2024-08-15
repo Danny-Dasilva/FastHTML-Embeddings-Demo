@@ -9,9 +9,10 @@ import clip
 # Database connection parameters
 DB_PARAMS = {
     "dbname": "postgres",
-    "user": "danny",
+    "user": "postgres",
     "password": "password", 
-    "host": "localhost"
+    "host": "timescaledb",
+    "port": 5432
 }
 
 # Initialize CLIP model
@@ -215,5 +216,5 @@ if __name__ == "__main__":
     target_user_id = 1
     similar_users = get_similar_users(target_user_id)
     print(f"Users most similar to user {target_user_id}:")
-    for user_id, username, similarity in similar_users:
+    for user_id, username, similarity in similar_users["results"]:
         print(f"User ID: {user_id}, Username: {username}, Similarity: {similarity:.4f}")
