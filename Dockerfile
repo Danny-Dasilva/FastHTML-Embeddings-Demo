@@ -23,8 +23,8 @@ COPY pyproject.toml poetry.lock* /app/
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-ansi
 
-# Install FastAPI and Uvicorn
-RUN poetry add fastapi uvicorn
-
 # Copy project
 COPY . /app
+
+# Run the application
+CMD ["python", "main.py"]

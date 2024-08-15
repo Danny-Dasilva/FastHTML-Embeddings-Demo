@@ -67,16 +67,6 @@ files = [
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
-name = "clip"
-version = "0.2.0"
-description = "A CLI clipboard manager"
-optional = false
-python-versions = "*"
-files = [
-    {file = "clip-0.2.0.tar.gz", hash = "sha256:c0913fbb1a0eac8a20da4a5c890d454b081305f64429c0aa5b652164450253b8"},
-]
-
-[[package]]
 name = "colorama"
 version = "0.4.6"
 description = "Cross-platform colored terminal text."
@@ -1265,4 +1255,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "021389dac13b212bebb846ffc80ae2d073eb577f2ee8b3ecaedbca330414ad40"
+content-hash = "51f71a4fa4f6351f7634e9d3f97d225e1514f816bbbae7331f60cbd3921e166e"
